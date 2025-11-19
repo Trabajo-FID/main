@@ -1,0 +1,182 @@
+---
+title: "Seguimiento 1 - Notebook"
+output: html_notebook
+---
+
+# Seguimiento 1
+
+## Equipo 9
+
+-   Ángel Marín Rodríguez
+-   Marcos Eduardo Guzmán Marcillo
+-   Rubén Jiménez Jiménez
+-   Elena Berdugo Rodríguez
+-   Tim Lidner
+
+**Dataset:** [Kepler Exoplanet Search Results](https://www.kaggle.com/datasets/nasa/kepler-exoplanet-search-results)
+
+## Introducción
+
+Hemos escogido un dataset con temática de exoplanetas. Un exoplaneta es un planeta no perteneciente al sistema solar. El dataset utiliza información recuperada gracias al telescopio espacial Johannes Kepler, y cuenta con unos 10000 ejemplos de datos.
+
+A priori estimamos viable un problema típico de clasificación para el estatus del planeta (candidato, falso positivo, confirmado), pero tenemos intención de abordarlo también con aprendizaje no supervisado, agrupando por ejemplo, los planetas en función de sus características. Hablando de las características, son algo técnicas, pero pasamos a describirlas brevemente a continuación:\
+
+-   kepid: Identificador único del objetivo observado por el telescopio Kepler.
+
+-   kepoi_name: Nombre asignado al objeto candidato a exoplaneta.
+
+-   kepler_name: Nombre oficial del exoplaneta confirmado (si existe).
+
+-   koi_disposition: Estado del candidato (CONFIRMED, FALSE POSITIVE o CANDIDATE).
+
+-   koi_pdisposition: Clasificación de la misión Kepler (CANDIDATE o FALSE POSITIVE).
+
+-   koi_score: Probabilidad de que el objeto sea un planeta real.
+
+-   koi_fpflag_nt: Indica si el tránsito no es de origen planetario.
+
+-   koi_fpflag_ss: Indica si el candidato se identifica como un sistema estelar binario.
+
+-   koi_fpflag_co: Indica si el tránsito está contaminado por una fuente cercana.
+
+-   koi_fpflag_ec: Indica si el tránsito podría ser causado por una eclipsante estelar.
+
+-   koi_period: Periodo orbital del planeta en días.
+
+-   koi_time0bk: Tiempo (BJD) del primer tránsito observado.
+
+-   koi_eccen: Excentricidad orbital (0 = circular).
+
+-   koi_longp: Longitud del periastro (en grados).
+
+-   koi_impact: Parámetro de impacto del tránsito.
+
+-   koi_duration: Duración del tránsito en horas.
+
+-   koi_depth: Profundidad del tránsito en partes por millón.
+
+-   koi_prad: Radio del planeta en radios terrestres.
+
+-   koi_teq: Temperatura de equilibrio del planeta (K).
+
+-   koi_insol: Flujo estelar recibido por el planeta en unidades terrestres.
+
+-   koi_model_snr: Relación señal/ruido del modelo de tránsito.
+
+-   koi_tce_plnt_num: Número del planeta dentro del sistema (1, 2, 3...).
+
+-   koi_tce_delivname: Versión de los datos del catálogo TCE.
+
+-   koi_steff: Temperatura efectiva de la estrella anfitriona (K).
+
+-   koi_slogg: Gravedad superficial de la estrella (log g, cgs).
+
+-   koi_srad: Radio estelar en radios solares.
+
+-   ra: Ascensión recta de la estrella (grados).
+
+-   dec: Declinación de la estrella (grados).
+
+-   koi_kepmag: Magnitud Kepler de la estrella.
+
+-   koi_dataran: Intervalo temporal de observación.
+
+-   koi_count: Número de observaciones disponibles.
+
+-   koi_steff_err1: Error superior en la temperatura estelar.
+
+-   koi_steff_err2: Error inferior en la temperatura estelar.
+
+-   koi_slogg_err1: Error superior en la gravedad estelar.
+
+-   koi_slogg_err2: Error inferior en la gravedad estelar.
+
+-   koi_srad_err1: Error superior en el radio estelar.
+
+-   koi_srad_err2: Error inferior en el radio estelar.
+
+-   koi_prad_err1: Error superior en el radio planetario.
+
+-   koi_prad_err2: Error inferior en el radio planetario.
+
+-   koi_teq_err1: Error superior en la temperatura de equilibrio.
+
+-   koi_teq_err2: Error inferior en la temperatura de equilibrio.
+
+-   koi_insol_err1: Error superior en el flujo incidente.
+
+-   koi_insol_err2: Error inferior en el flujo incidente.
+
+-   koi_model_snr_err: Error en la relación señal/ruido.
+
+-   koi_period_err1: Error superior en el periodo orbital.
+
+-   koi_period_err2: Error inferior en el periodo orbital.
+
+-   koi_time0bk_err1: Error superior en el tiempo de tránsito.
+
+-   koi_time0bk_err2: Error inferior en el tiempo de tránsito.
+
+-   koi_duration_err1: Error superior en la duración del tránsito.
+
+-   koi_duration_err2: Error inferior en la duración del tránsito.
+
+-   koi_depth_err1: Error superior en la profundidad del tránsito.
+
+-   koi_depth_err2: Error inferior en la profundidad del tránsito.
+
+## Estudio Inicial
+
+Realizamos la carga de librerías, datos, y algún análisis inicial.
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(readr)
+library(scales)
+
+```
+
+-   Cargamos los datos
+
+```{r}
+kepler <- read_csv("kepler_all/cumulative.csv")
+```
+
+-   Resumen de datos con head - Tenemos 50 columnas, que son bastantes, tendremos que ver cómo hacer seleccion de atributos para quedarnos con menos seguramente, aunque teniendo 10000 ejemplos antes de realizar un estudio de su estado, parece prometedor.
+
+```{r}
+head(kepler)
+```
+
+Tenemos un total de 9564 Exoplanetas, con 50 Características.
+
+```{r}
+str(kepler)
+dim(kepler)
+```
+
+Viendo el resumen del dataset - Puede ser relevante emplear alguna de estas métricas
+
+```{r}
+summary(kepler)
+```
+
+Una visualización sencilla: distribución de la duración del tránsito del exoplaneta, vemos cómo tiene un gran pico.
+
+```{r}
+plot(density(kepler$koi_duration))
+```
+
+Podemos ver que hay muchos más falsos positivos que confirmados. Los candidatos aún no sabemos lo que son. Tenemos un desbalanceo en estas clases.
+
+```{r}
+pie(table(kepler$koi_disposition))
+
+```
+
+-   **koi_score** es la confianza en que el planeta sea candidato, se distribuye como es de esperar de 0 a 1. Vemos que sobre 0.3 es la mediana.
+
+```{r}
+boxplot(kepler$koi_score)
+```
