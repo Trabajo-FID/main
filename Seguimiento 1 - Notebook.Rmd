@@ -48,19 +48,19 @@ A priori estimamos viable un problema típico de clasificación para el estatus 
 
 -   koi_score: Probabilidad (confianza) de que el objeto sea un planeta real. Para CANDIDATE un valor alto representa alta confianza, mientras para FALSE POSITIVE un valor alto representa una confianza baja en esta disposición.
 
--   koi_fpflag_nt: Indica falso positivo por un tránsito no es de origen planetario.
+-   koi_fpflag_nt: falso positivo por un tránsito no es de origen planetario.
 
--   koi_fpflag_ss: Indica falso positivo por equivocación con un sistema estelar binario.
+-   koi_fpflag_ss: falso positivo por equivocación con un sistema estelar binario.
 
--   koi_fpflag_co: Indica falso positivo por un tránsito contaminado por una fuente cercana.
+-   koi_fpflag_co: falso positivo por un tránsito contaminado por una fuente cercana.
 
--   koi_fpflag_ec: Indica falso positivo por un tránsito que podría ser causado por una eclipsante estelar.
+-   koi_fpflag_ec: falso positivo por un tránsito que podría ser causado por una eclipsante estelar.
 
 -------------
 
 *Información sobre TCE (Threshold Crossing Event)*
 
--   koi_model_snr: Relación señal/ruido del modelo de tránsito.
+-   koi_model_snr: koi_depth normalizado por fluctuación regular de la luz de la estrella. Indica la fiabilidad del señal
 
 -   koi_tce_plnt_num: Número del planeta dentro del sistema (1, 2, 3...).
 
@@ -74,11 +74,11 @@ A priori estimamos viable un problema típico de clasificación para el estatus 
 
 -   koi_time0bk: Tiempo (BJD) del primer tránsito observado.
 
--   koi_impact: Parámetro de impacto del tránsito.
+-   koi_impact: Impacto del tránsito (delante del centro de la estrella (valor cercano a 0) o más cerca del borde (valor cercano a 1) o apenas roza la estrella (valor >1 a menudo significa que falla o está rozando))
 
 -   koi_duration: Duración del tránsito en horas.
 
--   koi_depth: Profundidad del tránsito en partes por millón.
+-   koi_depth: Profundidad del tránsito (cuanta luz bloqueó) en partes por millón. Indica el tamaño del planeta.
 
 -   koi_prad: Radio del planeta en radios terrestres.
 
