@@ -187,7 +187,7 @@ kepler <- read_csv("data/cumulative.csv")
 head(kepler)
 ```
 
-Tenemos un total de 9564 Exoplanetas, con 50 Características.
+Tenemos un total de 9564 Exoplanetas, con 49 Características, de las que 22 se refieren a errores de otros atributos.
 
 ```{r}
 str(kepler)
@@ -199,6 +199,105 @@ Viendo el resumen del dataset - Puede ser relevante emplear alguna de estas mét
 ```{r}
 summary(kepler)
 ```
+
+A ver si hay duplicados - es decir verificar si rowid, kepid y kepoi_name siempre tienen valores únicos:
+
+```{r}
+# 1. Check if kepid is unique
+kepler %>%
+  group_by(kepid) %>%
+  summarize(n = n()) %>%
+  filter(n > 1)
+# If this returns 0 rows, every kepid is unique
+```
+```{r}
+# Check if kepoi_name is unique
+kepler %>%
+  group_by(kepoi_name) %>%
+  summarize(n = n()) %>%
+  filter(n > 1)
+# If this returns 0 rows, every kepoi_name is unique
+```
+
+```{r}
+# Check for any missing or empty kepoi_name
+kepler %>%
+  filter(is.na(kepoi_name) | kepoi_name == "") %>%
+  nrow()
+# If this returns 0, there are no missing/empty names
+```
+```{r}
+# Check if a kepid is ever associated with multiple kepoi_name
+kepler %>%
+  group_by(kepid) %>%
+  summarize(n_names = n_distinct(kepoi_name), kepoi_name, kepler_name) %>%
+  filter(n_names > 1)
+# If this returns 0 rows, each kepid is associated with only one kepoi_name
+```
+
+
+```{r}
+# Check if kepid + kepoi_name pairs are unique
+kepler %>%
+  group_by(kepid, kepoi_name) %>%
+  summarize(n = n()) %>%
+  filter(n > 1)
+# If this returns 0 rows, the combination is unique
+```
+
+```{r}
+# Check if a kepoi_name is ever associated with multiple kepid
+kepler %>%
+  group_by(kepoi_name) %>%
+  summarize(n_ids = n_distinct(kepid)) %>%
+  filter(n_ids > 1)
+# If this returns 0 rows, each kepoi_name is associated with only one kepid
+```
+
+
+
+A ver si las columnas koi_disposition y koi_pdisposition contienen valores falsos.
+
+```{r}
+unique(kepler$koi_disposition)
+```
+
+```{r}
+unique(kepler$koi_pdisposition)
+```
+A ver si todos los que son FALSE POSITIVES según disposition y pdisposition no tienen kepler_name
+
+
+```{r}
+kepler %>%
+  filter(!str_detect(kepler_name, "Kepler") | is.na(kepler_name)) %>%
+  distinct(kepler_name)
+```
+
+
+
+```{r}
+kepler %>%
+  filter(koi_pdisposition == "FALSE POSITIVE" & !is.na(kepler_name))
+```
+```{r}
+kepler %>%
+  filter(koi_disposition == "FALSE POSITIVE" & !is.na(kepler_name))
+```
+
+
+A ver si todos los FALSE POSITIVES sólo tienen una de las fpflag_xx
+
+```{r}
+kepler %>%
+  filter(koi_pdisposition == "FALSE POSITIVE") %>%
+  rowwise() %>%
+  filter(sum(c_across(starts_with("koi_fpflag_"))) != 1) %>%
+  ungroup() %>%
+  select(kepoi_name, koi_pdisposition, koi_fpflag_co, koi_fpflag_ec, koi_fpflag_nt, koi_fpflag_ss)
+```
+
+
 
 Podemos ver que hay muchos más falsos positivos que confirmados. Los candidatos aún no sabemos lo que son. Tenemos un desbalanceo en estas clases.
 
@@ -241,6 +340,7 @@ plot(density(kepler$koi_duration))
 
 # TODO
 
+- preprocesamiento: eliminar valores faltantes, NA, ...
 - verificar diferencias entre disposition y pdisposition y mirar koi_score (confianza) para estos ejemplos
 - analizar razónes más comunes para FALSE POSITIVE con las columnas empezando en "koi_fpflag..."
 - Analizar tránsitos, correlaciones
