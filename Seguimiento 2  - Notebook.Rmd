@@ -1,0 +1,474 @@
+---
+title: "Seguimiento 1 - Notebook"
+output: html_notebook
+---
+
+# Seguimiento 1
+
+## Equipo 9
+
+-   Ángel Marín Rodríguez
+-   Marcos Eduardo Guzmán Marcillo
+-   Rubén Jiménez Jiménez
+-   Elena Berdugo Rodríguez
+-   Tim Lindner
+
+**Dataset:** [Kepler Exoplanet Search Results](https://www.kaggle.com/datasets/nasa/kepler-exoplanet-search-results)
+
+## Introducción
+
+Hemos escogido un dataset con temática de exoplanetas. Un exoplaneta es un planeta no perteneciente a nuestro sistema solar. El dataset utiliza información recuperada gracias al telescopio espacial Johannes Kepler, y cuenta con unos 10000 ejemplos de datos.
+
+*Proceso de Kepler* 1. Un evento TCE (Threshold Crossing Event) alarma al sistema automático de Kepler que una de las estrellas ha bajado en luminosidad de manera frecuente.
+
+2.  Luego algoritmos automáticos y finalmente expertos humanos verifican candidatos.
+
+A priori estimamos viable un problema típico de clasificación para el estatus del planeta (candidato, falso positivo, confirmado), pero tenemos intención de abordarlo también con aprendizaje no supervisado, clustering por ejemplo, los planetas en función de sus características. Hablando de las características, son algo técnicas, pero pasamos a describirlas brevemente a continuación:\
+
+*Identificadores*
+
+-   kepid: Identificador único del objetivo observado por el telescopio Kepler.
+
+-   kepoi_name: Nombre asignado al objeto candidato a exoplaneta.
+
+------------------------------------------------------------------------
+
+*Archivo de Exoplanetas*
+
+-   kepler_name: Nombre oficial del exoplaneta confirmado (si existe).
+
+-   koi_disposition: Estado del candidato del la comunidad científica (CONFIRMED, FALSE POSITIVE o CANDIDATE).
+
+------------------------------------------------------------------------
+
+*Resultados del Proyecto Kepler*
+
+-   koi_pdisposition: Clasificación de la misión Kepler (CANDIDATE o FALSE POSITIVE).
+
+-   koi_score: Probabilidad (confianza) de que el objeto sea un planeta real. Para CANDIDATE un valor alto representa alta confianza, mientras para FALSE POSITIVE un valor alto representa una confianza baja en esta disposición.
+
+-   koi_fpflag_nt: falso positivo por un tránsito no es de origen planetario.
+
+-   koi_fpflag_ss: falso positivo por equivocación con un sistema estelar binario.
+
+-   koi_fpflag_co: falso positivo por un tránsito contaminado por una fuente cercana.
+
+-   koi_fpflag_ec: falso positivo por un tránsito que podría ser causado por una eclipsante estelar.
+
+------------------------------------------------------------------------
+
+*Información sobre TCE (Threshold Crossing Event)*
+
+-   koi_model_snr: koi_depth normalizado por fluctuación regular de la luz de la estrella. Indica la fiabilidad del señal
+
+-   koi_tce_plnt_num: Número del planeta dentro del sistema (1, 2, 3...).
+
+-   koi_tce_delivname: Versión de los datos del catálogo TCE.
+
+------------------------------------------------------------------------
+
+*Propriedades del Tránsito*
+
+-   koi_period: Periodo orbital del planeta en días.
+
+-   koi_time0bk: Tiempo (BJD) del primer tránsito observado.
+
+-   koi_impact: Impacto del tránsito (delante del centro de la estrella (valor cercano a 0) o más cerca del borde (valor cercano a 1) o apenas roza la estrella (valor \>1 a menudo significa que falla o está rozando))
+
+-   koi_duration: Duración del tránsito en horas.
+
+-   koi_depth: Profundidad del tránsito (cuanta luz bloqueó) en partes por millón. Indica el tamaño del planeta.
+
+-   koi_prad: Radio del planeta en radios terrestres.
+
+-   koi_teq: Temperatura de equilibrio del planeta (K).
+
+-   koi_insol: Flujo estelar recibido por el planeta en unidades terrestres.
+
+-   koi_prad_err1: Error superior en el radio planetario.
+
+-   koi_prad_err2: Error inferior en el radio planetario.
+
+-   koi_teq_err1: Error superior en la temperatura de equilibrio. [100% Null]
+
+-   koi_teq_err2: Error inferior en la temperatura de equilibrio. [100% Null]
+
+-   koi_insol_err1: Error superior en el flujo incidente.
+
+-   koi_insol_err2: Error inferior en el flujo incidente.
+
+-   koi_period_err1: Error superior en el periodo orbital.
+
+-   koi_period_err2: Error inferior en el periodo orbital.
+
+-   koi_time0bk_err1: Error superior en el tiempo de tránsito.
+
+-   koi_time0bk_err2: Error inferior en el tiempo de tránsito.
+
+-   koi_duration_err1: Error superior en la duración del tránsito.
+
+-   koi_duration_err2: Error inferior en la duración del tránsito.
+
+-   koi_depth_err1: Error superior en la profundidad del tránsito.
+
+-   koi_depth_err2: Error inferior en la profundidad del tránsito.
+
+-   koi_impact_err1: Error inferior en el impacto del tránsito.
+
+-   koi_impact_err2: Error inferior en el impacto del tránsito.
+
+------------------------------------------------------------------------
+
+*Parámetros estrelares*
+
+-   ra: Ascensión recta de la estrella (grados).
+
+-   dec: Declinación de la estrella (grados).
+
+-   koi_kepmag: Magnitud Kepler de la estrella.
+
+-   koi_steff: Temperatura efectiva de la estrella anfitriona (K).
+
+-   koi_slogg: Gravedad superficial de la estrella (log g, cgs).
+
+-   koi_srad: Radio estelar en radios solares.
+
+-   koi_steff_err1: Error superior en la temperatura estelar.
+
+-   koi_steff_err2: Error inferior en la temperatura estelar.
+
+-   koi_slogg_err1: Error superior en la gravedad estelar.
+
+-   koi_slogg_err2: Error inferior en la gravedad estelar.
+
+-   koi_srad_err1: Error superior en el radio estelar.
+
+-   koi_srad_err2: Error inferior en el radio estelar.
+
+------------------------------------------------------------------------
+
+*No incluidos en el dataset de Kaggle*
+
+-   koi_count: Número de observaciones disponibles.
+
+-   koi_eccen: Excentricidad orbital (0 = circular).
+
+-   koi_model_snr_err: Error en la relación señal/ruido.
+
+-   koi_longp: Longitud del periastro (en grados).
+
+-   y más ... <https://exoplanetarchive.ipac.caltech.edu/cgi-bin/TblView/nph-tblView?app=ExoTbls&config=cumulative>
+
+## Estudio Inicial
+
+Realizamos la carga de librerías, datos, y algún análisis inicial.
+
+```{r}
+library(tidyverse)
+library(dplyr)
+#library(readr)
+#library(scales)
+library(ggplot2)
+
+```
+
+-   Cargamos los datos
+
+```{r}
+kepler <- read_csv("data/cumulative.csv")
+```
+
+-   Resumen de datos con head - Tenemos 50 columnas, que son bastantes, tendremos que ver cómo hacer seleccion de atributos para quedarnos con menos seguramente, aunque teniendo 10000 ejemplos antes de realizar un estudio de su estado, parece prometedor.
+
+```{r}
+head(kepler)
+```
+
+Tenemos un total de 9564 Exoplanetas, con 49 Características, de las que 22 se refieren a errores de otros atributos.
+
+```{r}
+str(kepler)
+dim(kepler)
+```
+
+Viendo el resumen del dataset - Puede ser relevante emplear alguna de estas métricas
+
+```{r}
+summary(kepler)
+```
+
+A ver si hay duplicados - es decir verificar si rowid, kepid y kepoi_name siempre tienen valores únicos:
+
+```{r}
+# 1. Check if kepid is unique
+kepler %>%
+  group_by(kepid) %>%
+  summarize(n = n()) %>%
+  filter(n > 1)
+# If this returns 0 rows, every kepid is unique
+```
+
+```{r}
+# Check if kepoi_name is unique
+kepler %>%
+  group_by(kepoi_name) %>%
+  summarize(n = n()) %>%
+  filter(n > 1)
+# If this returns 0 rows, every kepoi_name is unique
+```
+
+```{r}
+# Check for any missing or empty kepoi_name
+kepler %>%
+  filter(is.na(kepoi_name) | kepoi_name == "") %>%
+  nrow()
+# If this returns 0, there are no missing/empty names
+```
+
+```{r}
+# Check if a kepid is ever associated with multiple kepoi_name
+kepler %>%
+  group_by(kepid) %>%
+  summarize(n_names = n_distinct(kepoi_name), kepoi_name, kepler_name) %>%
+  filter(n_names > 1)
+# If this returns 0 rows, each kepid is associated with only one kepoi_name
+```
+
+```{r}
+# Check if kepid + kepoi_name pairs are unique
+kepler %>%
+  group_by(kepid, kepoi_name) %>%
+  summarize(n = n()) %>%
+  filter(n > 1)
+# If this returns 0 rows, the combination is unique
+```
+
+```{r}
+# Check if a kepoi_name is ever associated with multiple kepid
+kepler %>%
+  group_by(kepoi_name) %>%
+  summarize(n_ids = n_distinct(kepid)) %>%
+  filter(n_ids > 1)
+# If this returns 0 rows, each kepoi_name is associated with only one kepid
+```
+
+A ver si las columnas koi_disposition y koi_pdisposition contienen valores falsos.
+
+```{r}
+unique(kepler$koi_disposition)
+```
+
+```{r}
+unique(kepler$koi_pdisposition)
+```
+
+A ver si todos los que son FALSE POSITIVES según disposition y pdisposition no tienen kepler_name
+
+```{r}
+kepler %>%
+  filter(!str_detect(kepler_name, "Kepler") | is.na(kepler_name)) %>%
+  distinct(kepler_name)
+```
+
+```{r}
+kepler %>%
+  filter(koi_pdisposition == "FALSE POSITIVE" & !is.na(kepler_name))
+```
+
+```{r}
+kepler %>%
+  filter(koi_disposition == "FALSE POSITIVE" & !is.na(kepler_name))
+```
+
+A ver si todos los FALSE POSITIVES sólo tienen una de las fpflag_xx
+
+```{r}
+kepler %>%
+  filter(koi_pdisposition == "FALSE POSITIVE") %>%
+  rowwise() %>%
+  filter(sum(c_across(starts_with("koi_fpflag_"))) != 1) %>%
+  ungroup() %>%
+  select(kepoi_name, koi_pdisposition, koi_fpflag_co, koi_fpflag_ec, koi_fpflag_nt, koi_fpflag_ss)
+```
+
+Podemos ver que hay muchos más falsos positivos que confirmados. Los candidatos aún no sabemos lo que son. Tenemos un desbalanceo en estas clases.
+
+```{r}
+pie(table(kepler$koi_pdisposition))
+
+```
+
+Comparando con el diagrama anterior, se puede ver que algunos de los candidatos han sido confirmados en el archivo de exoplanetas.
+
+```{r}
+pie(table(kepler$koi_disposition))
+
+```
+
+-   **koi_score** es la confianza en que el planeta sea candidato, se distribuye como es de esperar de 0 a 1. Probabilidad (confianza) de que el objeto sea un planeta real. Para CANDIDATE un valor alto representa alta confianza, mientras para FALSE POSITIVE un valor bajo representa una confianza alta en la disposición.
+
+```{r}
+kepler %>%
+  ggplot(aes(x=kepler$koi_pdisposition,y=kepler$koi_score))+
+  geom_boxplot()
+```
+
+```{r}
+kepler_pcandidate <- kepler %>%
+  filter(koi_pdisposition == "CANDIDATE")
+boxplot(kepler_pcandidate$koi_score)
+```
+
+```{r}
+kepler_pfps <- kepler %>%
+  filter(koi_pdisposition == "FALSE POSITIVE")
+boxplot(kepler_pfps$koi_score)
+```
+
+Una visualización sencilla: distribución de la duración del tránsito del exoplaneta, vemos cómo tiene un gran pico.
+
+```{r}
+plot(density(kepler$koi_duration))
+```
+
+# Seguimiento 2
+
+**IMPORTANTE!!** La parte del seguimiento 1 ha sido ampliada, en especial se detallan mucho mejor las variables.
+
+## TODO
+
+-   preprocesamiento: eliminar valores faltantes, NA, ...
+-   verificar diferencias entre disposition y pdisposition y mirar koi_score (confianza) para estos ejemplos
+-   analizar razónes más comunes para FALSE POSITIVE con las columnas empezando en "koi_fpflag..."
+-   Analizar tránsitos, correlaciones
+-   hacer un predictor para CANDIDATE y FALSE POSITIVE con los datos de Kepler. En caso de un árbol de decisiones, cuáles son los atributos más importantes?
+-   clustering de planetas, estrellas, sistemas solares, ..
+-   ... ?
+
+## Introducción
+
+Lo primero que probaremos será un clasificador sencillo binario de CANDIDATE/FALSE POSITIVE, para ello tenemos que eliminar la columna `koi_disposition`, pues también indica clases, pero de una forma distinta, como se describió anteriormente.
+
+Debido al gran nº de nulos en el dataset, por ahora mientras estudiamos formas apropiadas de solventarlo, nos quedaremos con las columnas que no tengan ningún nulo.
+
+```{r}
+kepler_no_na_cols <- kepler %>% 
+  select(where(~ sum(is.na(.)) == 0))
+
+kepler_no_na_cols$koi_disposition <- NULL
+
+colSums(is.na(kepler_no_na_cols))
+ncol(kepler_no_na_cols)
+
+
+```
+
+Como se ve, ahora tenemos un datframe con 13 columnas (12 para predecir) sin valores nulos y una columna `koi_pdisposition` que será la variable a prederir.
+
+Vamos a empezar probando distintos modelos, para ello dividiremos nuestros datos en entrenamiento y prueba.
+
+```{r}
+library(caret)
+
+myControl_clas <- trainControl(
+  method = "cv",
+  number = 10,
+  summaryFunction = twoClassSummary,
+  classProbs = TRUE, # IMPORTANT!
+  savePredictions = TRUE,
+  verboseIter = FALSE
+)
+
+kepler_no_na_cols$koi_pdisposition <- as.factor(kepler_no_na_cols$koi_pdisposition)
+levels(kepler_no_na_cols$koi_pdisposition) <- make.names(levels(kepler_no_na_cols$koi_pdisposition))
+
+
+
+model_clas_glm <- train(koi_pdisposition ~ ., kepler_no_na_cols, 
+                        method="glm", 
+                        trControl=myControl_clas)
+
+print(model_clas_glm)
+```
+
+Entrenamos el siguiente modelo:
+
+```{r}
+model_clas_xgbTree <- train(koi_pdisposition ~ ., kepler_no_na_cols, 
+                        method="xgbTree", 
+                        trControl=myControl_clas)
+
+print(model_clas_xgbTree)
+```
+
+Ahora comparamos los modelos visualmente con caret:
+
+```{r}
+model_list <- list(
+  glm = model_clas_glm, 
+  glmnet = model_class_glmnet,
+  glmnet_tunning = model_class_glmnet_tuning,
+  xgbTree = model_clas_xgbTree
+)
+resamples <- resamples(model_list)
+
+summary(resamples, metric="ROC")
+
+# Representación visual
+bwplot(resamples, metric = "ROC") 
+dotplot(resamples, metric="ROC")
+```
+
+### Valores Nulos
+
+Mientras algunos trabajamos en esto, un compañero se encargó de estudiar como tratar los valores nulos, a continuación, lo que el hizo:
+
+En Kaggle podemos ver que muchas columnas tiene NAs. Queremos saber si algunas muestras tienen NAs en muchas columnas - en este caso podríamos eliminar estas filas.
+
+```{r}
+kepler %>%
+  mutate(missing_per_row = rowSums(is.na(.))) %>%
+  arrange(desc(missing_per_row)) %>%
+  head(20)
+```
+
+Aquí tenemos todos las columnas con los índices de muestras que contienen NA en esa columna:
+
+```{r}
+
+kepler_short <- kepler %>%
+  select(-contains("err")) %>%
+  select(-koi_tce_delivname)
+
+kepler_na <- kepler_short %>%
+  select(-kepler_name)
+
+na_rows_by_col <- lapply(kepler_na, function(col) which(is.na(col)))
+na_rows_by_col
+```
+
+Las columnas afectadas son las siguientes:
+
+```{r}
+cols_363 <- names(Filter(function(x) length(x) == 363, na_rows_by_col))
+cols_363
+```
+
+Aquí tenemos los índices de todas las muestras que tienen el valor NA en todas las columnas en las que NA es frecuente.
+
+```{r}
+rows_all_na <- kepler_na %>%
+  filter(if_all(all_of(cols_363), is.na)) %>%
+  pull(rowid)
+rows_all_na
+```
+
+Podemos borrar estas muestras del dataset y vemos que solo quedan 3 atributos afectados de NA.
+
+```{r}
+kepler_na_clean1 <- kepler_na %>%
+  filter(!rowid %in% rows_all_na)
+
+na_rows_by_col_clean1 <- lapply(kepler_na_clean1, function(col) which(is.na(col)))
+na_rows_by_col_clean1
+```
