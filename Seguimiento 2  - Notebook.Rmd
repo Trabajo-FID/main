@@ -499,7 +499,7 @@ nrow(kepler_no_na_cols1)
 ```
 ```{r}
 kepler_classifier <- kepler_no_na_cols1 %>% 
-  select(-kepid, -kepoi_name, -koi_disposition) %>%
+  select(-rowid, -kepid, -kepoi_name, -koi_disposition) %>%
   select(-contains("fpflag"))
 
 colSums(is.na(kepler_classifier))
@@ -508,7 +508,7 @@ nrow(kepler_classifier)
 ```
 
 
-Como se ve, ahora tenemos un dataframe con 18 columnas sin valores nulos con una columna `koi_pdisposition` que será la variable a predecir y 16 para predecir.
+Como se ve, ahora tenemos un dataframe con 17 columnas sin valores nulos con una columna `koi_pdisposition` que será la variable a predecir y 16 para predecir.
 
 Vamos a empezar probando distintos modelos, para ello dividiremos nuestros datos en entrenamiento y prueba.
 
