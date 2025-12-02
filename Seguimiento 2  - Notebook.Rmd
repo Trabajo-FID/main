@@ -169,7 +169,7 @@ library(dplyr)
 #library(readr)
 #library(scales)
 library(ggplot2)
-
+library(caret)
 ```
 
 -   Cargamos los datos
@@ -368,7 +368,7 @@ Como se ve, ahora tenemos un datframe con 13 columnas (12 para predecir) sin val
 Vamos a empezar probando distintos modelos, para ello dividiremos nuestros datos en entrenamiento y prueba.
 
 ```{r}
-library(caret)
+#library(caret)
 
 myControl_clas <- trainControl(
   method = "cv",
@@ -472,4 +472,93 @@ kepler_na_clean1 <- kepler_na %>%
 
 na_rows_by_col_clean1 <- lapply(kepler_na_clean1, function(col) which(is.na(col)))
 na_rows_by_col_clean1
+```
+```{r}
+colSums(is.na(kepler_na_clean1))
+ncol(kepler_na_clean1)
+```
+
+```{r}
+kepler_na_clean1 <- kepler_na_clean1 %>% 
+  filter(!is.na(koi_kepmag)) %>%
+  filter(!is.na(koi_tce_plnt_num))
+```
+
+```{r}
+colSums(is.na(kepler_na_clean1))
+ncol(kepler_na_clean1)
+```
+
+```{r}
+kepler_no_na_cols1 <- kepler_na_clean1 %>% 
+  select(where(~ sum(is.na(.)) == 0))
+
+colSums(is.na(kepler_no_na_cols1))
+ncol(kepler_no_na_cols1)
+nrow(kepler_no_na_cols1)
+```
+```{r}
+kepler_classifier <- kepler_no_na_cols1 %>% 
+  select(-kepid, -kepoi_name, -koi_disposition) %>%
+  select(-contains("fpflag"))
+
+colSums(is.na(kepler_classifier))
+ncol(kepler_classifier)
+nrow(kepler_classifier)
+```
+
+
+Como se ve, ahora tenemos un dataframe con 18 columnas sin valores nulos con una columna `koi_pdisposition` que será la variable a predecir y 16 para predecir.
+
+Vamos a empezar probando distintos modelos, para ello dividiremos nuestros datos en entrenamiento y prueba.
+
+```{r}
+
+myControl_clas1 <- trainControl(
+  method = "cv",
+  number = 10,
+  summaryFunction = twoClassSummary,
+  classProbs = TRUE, # IMPORTANT!
+  savePredictions = TRUE,
+  verboseIter = FALSE
+)
+
+kepler_classifier$koi_pdisposition <- as.factor(kepler_classifier$koi_pdisposition)
+levels(kepler_classifier$koi_pdisposition) <- make.names(levels(kepler_classifier$koi_pdisposition))
+
+```
+
+```{r}
+model_clas_glm <- train(koi_pdisposition ~ ., kepler_classifier, 
+                        method="glm", 
+                        trControl=myControl_clas1)
+
+print(model_clas_glm)
+```
+
+Entrenamos el siguiente modelo:
+
+```{r}
+model_clas_xgbTree <- train(koi_pdisposition ~ ., kepler_classifier, 
+                        method="xgbTree", 
+                        trControl=myControl_clas1)
+
+print(model_clas_xgbTree)
+```
+Ahora comparamos los modelos visualmente con caret:
+
+```{r}
+model_list <- list(
+  glm = model_clas_glm, 
+  #glmnet = model_class_glmnet,
+  #glmnet_tunning = model_class_glmnet_tuning,
+  xgbTree = model_clas_xgbTree
+)
+resamples <- resamples(model_list)
+
+summary(resamples, metric="ROC")
+
+# Representación visual
+bwplot(resamples, metric = "ROC") 
+dotplot(resamples, metric="ROC")
 ```
