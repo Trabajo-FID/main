@@ -428,8 +428,9 @@ En Kaggle podemos ver que muchas columnas tiene NAs. Queremos saber si algunas m
 ```{r}
 kepler %>%
   mutate(missing_per_row = rowSums(is.na(.))) %>%
+  select(rowid, missing_per_row, everything()) %>%
   arrange(desc(missing_per_row)) %>%
-  head(20)
+  head(10)
 ```
 
 Aquí tenemos todos las columnas con los índices de muestras que contienen NA en esa columna:
