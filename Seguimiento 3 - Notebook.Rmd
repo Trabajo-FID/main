@@ -1,0 +1,461 @@
+---
+title: "Seguimiento 3 - Notebook"
+output: html_document
+---
+
+# Seguimiento 3
+
+## Introducción
+
+En esta sesión hemos trabajado en distintos frentes simultáneamente tales como:
+
+-   Ampliación de preprocesamiento de datos.
+
+-   Ampliación de la parte de aprendizaje supervisado.
+
+-   Comienzo de la parte de aprendizaje no supervisado.
+
+Antes de comenzar, necesitaremos definir ciertas variables ya usadas en entregas anteriores, que definimos a continuación antes de proceder con el seguimiento.
+
+```{r}
+library(tidyverse)
+library(dplyr)
+#library(readr)
+#library(scales)
+library(ggplot2)
+library(caret)
+library(rpart)
+library(rattle)
+library(RColorBrewer)
+library(xgboost)
+library(DiagrammeR)
+library(factoextra)
+```
+
+```{r}
+
+kepler <- read_csv("data/cumulative.csv")
+```
+
+```{r}
+kepler_no_na_cols <- kepler %>% 
+  select(where(~ sum(is.na(.)) == 0))
+```
+
+## Preprocesamiento de Datos
+
+### Valores Nulos
+
+Mientras algunos trabajamos en esto, un compañero se encargó de estudiar como tratar los valores nulos, a continuación, lo que el hizo:
+
+En Kaggle podemos ver que muchas columnas tiene NAs. Queremos saber si algunas muestras tienen NAs en muchas columnas - en este caso podríamos eliminar estas filas.
+
+```{r}
+kepler %>%
+  mutate(missing_per_row = rowSums(is.na(.))) %>%
+  select(rowid, missing_per_row, everything()) %>%
+  arrange(desc(missing_per_row)) %>%
+  head(10)
+```
+
+Aquí tenemos todos las columnas con los índices de muestras que contienen NA en esa columna:
+
+```{r}
+
+kepler_short <- kepler %>%
+  select(-contains("err")) %>%
+  select(-koi_tce_delivname)
+
+kepler_na <- kepler_short %>%
+  select(-kepler_name)
+
+na_rows_by_col <- lapply(kepler_na, function(col) which(is.na(col)))
+na_rows_by_col
+```
+
+Las columnas afectadas son las siguientes:
+
+```{r}
+cols_363 <- names(Filter(function(x) length(x) == 363, na_rows_by_col))
+cols_363
+```
+
+Aquí tenemos los índices de todas las muestras que tienen el valor NA en todas las columnas en las que NA es frecuente.
+
+```{r}
+rows_all_na <- kepler_na %>%
+  filter(if_all(all_of(cols_363), is.na)) %>%
+  pull(rowid)
+rows_all_na
+```
+
+Podemos borrar estas muestras del dataset y vemos que solo quedan 3 atributos afectados de NA.
+
+```{r}
+kepler_na_clean1 <- kepler_na %>%
+  filter(!rowid %in% rows_all_na)
+
+na_rows_by_col_clean1 <- lapply(kepler_na_clean1, function(col) which(is.na(col)))
+na_rows_by_col_clean1
+```
+
+```{r}
+colSums(is.na(kepler_na_clean1))
+ncol(kepler_na_clean1)
+```
+
+```{r}
+kepler_na_clean1 <- kepler_na_clean1 %>% 
+  filter(!is.na(koi_kepmag)) %>%
+  filter(!is.na(koi_tce_plnt_num))
+```
+
+```{r}
+colSums(is.na(kepler_na_clean1))
+ncol(kepler_na_clean1)
+```
+
+```{r}
+kepler_no_na_cols1 <- kepler_na_clean1 %>% 
+  select(where(~ sum(is.na(.)) == 0))
+
+colSums(is.na(kepler_no_na_cols1))
+ncol(kepler_no_na_cols1)
+nrow(kepler_no_na_cols1)
+```
+
+```{r}
+kepler_classifier <- kepler_no_na_cols1 %>% 
+  select(-rowid, -kepid, -kepoi_name, -koi_disposition) %>%
+  select(-contains("fpflag"))
+
+colSums(is.na(kepler_classifier))
+ncol(kepler_classifier)
+nrow(kepler_classifier)
+```
+
+Como se ve, ahora tenemos un dataframe con 17 columnas sin valores nulos con una columna `koi_pdisposition`, que será la variable a predecir, y 16 para predecir.
+
+## Aprendizaje Supervisado
+
+Vamos a empezar a entrenar con modelos supervisados. Para ello primero prepararemos el dataset. Usaremos la versión simplificada del dataset (kepler_no_na_cols), que solo contiene columnas sin NAs, y así evitamos problemas.
+
+También convertimos la variable objetivo koi_pdisposition a factor para que los modelos de clasificación funcionen correctamente.
+
+```{r}
+df <- kepler_classifier
+
+df$koi_pdisposition <- as.factor(df$koi_pdisposition)
+levels(df$koi_pdisposition) <- make.names(levels(df$koi_pdisposition))
+```
+
+Para evaluar bien los modelos, dividimos los datos en entrenamiento (80%) y test (20%). El conjunto de entrenamiento es el que usa caret para hacer la validación cruzada y encontrar el mejor modelo, y el test sirve para comprobar cómo de bien predice en datos nuevos.
+
+```{r}
+set.seed(123)
+
+train_idx <- createDataPartition(df$koi_pdisposition, p = 0.8, list = FALSE)
+
+train_data <- df[train_idx, ]
+test_data  <- df[-train_idx, ]
+```
+
+Ahora configuramos la validación cruzada. Usamos CV con 3 folds para no saturar el proceso demasiado. El parámetro classProbs = TRUE es importante porque queremos medir el AUC/ROC y eso requiere probabilidades, no solo predicciones de clase. Guardamos también las predicciones y usamos la métrica “ROC”, que suele ser la más informativa para clasificación binaria.
+
+```{r}
+myControl_clas <- trainControl(
+  method = "cv",
+  number = 3, 
+  summaryFunction = twoClassSummary,
+  classProbs = TRUE,
+  savePredictions = TRUE,
+  verboseIter = FALSE     # ACTIVA EL PROGRESO
+)
+```
+
+**Logistic Regression**
+
+En primer lugar probamos con un modelo de regresión logística usando glm. La idea es predecir la variable objetivo a partir de las características del dataset. Este modelo nos sirve como referencia básica antes de probar modelos más complejos.
+
+```{r}
+model_glm <- train(
+  koi_pdisposition ~ .,
+  data = train_data,
+  method = "glm",
+  trControl = myControl_clas,
+  metric = "ROC"
+)
+model_glm
+```
+
+**Modelo glmnet**
+
+Aquí usamos glmnet para hacer regresión logística con regularización. Esto ayuda a manejar muchas variables y evitar overfitting.
+
+```{r}
+# 
+# model_glmnet <- train(
+#   koi_pdisposition ~ .,
+#   data = train_data,
+#   method = "glmnet",
+#   trControl = myControl_clas,
+#   metric = "ROC"
+# )
+# 
+# model_glmnet
+```
+
+**SVM – (svmRadial)**
+
+El SVM con kernel radial suele funcionar bastante bien en problemas donde las clases no son linealmente separables (lo más normal en datos reales). Probamos una configuración sencilla (tuneLength = 3) para que no tarde demasiado y ver si este tipo de modelo tiene sentido para nuestros datos.
+
+```{r}
+model_svm <- train(
+  koi_pdisposition ~ .,
+  data = train_data,
+  method = "svmRadial",
+  trControl = myControl_clas,
+  metric = "ROC",
+  tuneLength = 3
+)
+model_svm
+```
+
+**Árbol de decisión**
+
+```{r}
+
+myControl_clas1 <- trainControl(
+  method = "cv",
+  number = 10,
+  summaryFunction = twoClassSummary,
+  classProbs = TRUE, # IMPORTANT!
+  savePredictions = TRUE,
+  verboseIter = FALSE
+)
+
+kepler_classifier$koi_pdisposition <- as.factor(kepler_classifier$koi_pdisposition)
+levels(kepler_classifier$koi_pdisposition) <- make.names(levels(kepler_classifier$koi_pdisposition))
+
+```
+
+```{r}
+model_clas_glm <- train(koi_pdisposition ~ ., kepler_classifier, 
+                        method="glm", 
+                        trControl=myControl_clas1)
+
+print(model_clas_glm)
+```
+
+Entrenamos el siguiente modelo:
+
+```{r}
+model_clas_xgbTree <- train(koi_pdisposition ~ ., kepler_classifier, 
+                        method="xgbTree", 
+                        trControl=myControl_clas1)
+
+print(model_clas_xgbTree)
+```
+
+Aquí se puede ver algunos de los árboles del boosted tree:
+
+```{r}
+xgb.dump <- xgb.dump(model_clas_xgbTree$finalModel, with_stats = TRUE)
+xgb.plot.tree(model = model_clas_xgbTree$finalModel, trees = 20)
+xgb.plot.tree(model = model_clas_xgbTree$finalModel, trees = 60)
+xgb.plot.tree(model = model_clas_xgbTree$finalModel, trees = 80)
+```
+
+Aquí vemos los atributos del boosted tree por orden de importancia:
+
+```{r}
+xgb.plot.importance(xgb.importance(model = model_clas_xgbTree$finalModel))
+```
+
+**Random Forest**
+
+Creamos un Random Forest, que combina muchos árboles de decisión para mejorar la predicción. Es útil porque reduce la varianza y suele dar mejores resultados que un solo árbol.
+
+Se puede notar que prad es el atributo más importante.
+
+```{r}
+model_class_rf <- train(koi_pdisposition ~ ., kepler_classifier, 
+                        method="rf", 
+                        trControl=myControl_clas1,
+                        tuneGrid = data.frame(mtry = c(1,3,5)),
+                        ntree=50)
+
+print(model_class_rf)
+```
+
+Veamos los atributos del random forest en orden de importancia:
+
+```{r}
+varImp(model_class_rf)
+plot(varImp(model_class_rf))
+```
+
+También podemos visualizar un rpart (Recursive Partitioning And Regression Tree):
+
+```{r}
+tree <- rpart(koi_pdisposition~., kepler_classifier, method = "class", 
+               control = rpart.control(cp=0.01))
+
+fancyRpartPlot(tree)
+```
+
+Si bajamos el parámetro de complejidad cp, vemos que no se cambian mucho las ramas más importantes.
+
+```{r}
+tree_cp_small <- rpart(koi_pdisposition~., kepler_classifier, method = "class", 
+               control = rpart.control(cp=0.003))
+
+fancyRpartPlot(tree_cp_small)
+```
+
+Igualmente, si usamos la información en vez del coeficiente gini para separar, las ramas no combian mucho:
+
+```{r}
+tree_i <- rpart(koi_pdisposition~., kepler_classifier, method = "class", 
+               control = rpart.control(cp=0.003), parms = list(split = "information"))
+
+fancyRpartPlot(tree_i)
+```
+
+**KNN - k vecinos más cercanos**
+
+Este modelo clasifica basándose en los ejemplos “más parecidos”. No suele ser el más potente en datasets con muchas variables o distintos rangos, pero es bueno tenerlo como base. Caret además calcula automáticamente el mejor valor de k según la validación cruzada.
+
+```{r}
+ model_knn <- train(
+  koi_pdisposition ~ .,
+  data = train_data,
+  method = "knn",
+  trControl = myControl_clas,
+  metric = "ROC",
+  tuneLength = 10
+)
+model_knn
+```
+
+```{r}
+plot(model_knn)
+```
+
+**Gradient Boosting (GBM)**
+
+Probamos Gradient Boosting, que combina muchos árboles débiles de forma secuencial para mejorar la predicción. Suele funcionar muy bien en datasets medianos y ayuda a capturar relaciones complejas.
+
+```{r}
+model_gbm <- train(
+koi_pdisposition ~ .,
+data = train_data,
+method = "gbm",
+trControl = myControl_clas,
+metric = "ROC",
+verbose = FALSE,
+tuneLength = 3
+)
+model_gbm
+
+```
+
+**XGBoost**
+
+Usamos XGBoost, un boosting muy eficiente y popular en competiciones. Es un poco más rápido que GBM y a veces da mejores resultados en datasets desequilibrados.
+
+```{r}
+model_xgb <- train(
+koi_pdisposition ~ .,
+data = train_data,
+method = "xgbTree",
+trControl = myControl_clas,
+metric = "ROC",
+tuneLength = 3
+)
+model_xgb
+
+```
+
+**Naive Bayes**
+
+Modelo muy simple que asume independencia entre variables. Aunque no suele ser el más preciso, es un buen baseline para comparar con modelos más complejos.
+
+```{r}
+model_nb <- train(
+koi_pdisposition ~ .,
+data = train_data,
+method = "naive_bayes",
+trControl = myControl_clas,
+metric = "ROC",
+tuneLength = 3
+)
+model_nb
+
+```
+
+Una vez entrenados los distintos modelos, juntamos todos en una lista y los comparamos usando la métrica ROC. De este modo podemos ver de un vistazo cuál obtiene mejor rendimiento medio a través de los folds de validación cruzada.
+
+```{r}
+model_list <- list(
+  glm = model_glm,
+  #glmnet = model_glmnet,
+  #rf = model_class_rf,
+  svm = model_svm,
+  #rpart = model_clas_xgbTree,
+  knn = model_knn,
+  gbm = model_gbm,
+  xgb = model_xgb,
+  nb = model_nb
+)
+
+res <- resamples(model_list)
+summary(res, metric="ROC")
+
+```
+
+```{r}
+bwplot(res, metric = "ROC")
+```
+
+```{r}
+dotplot(res, metric = "ROC")
+```
+
+Finalmente evaluamos los modelos (en este caso xgb) sobre el conjunto reservado a test para ver cómo actúa. Mediante la Matriz de Confusión vemos donde se ubican los mayores fallos, si en FALSE POSITIVE o en CANDIDATE
+
+```{r}
+pred <- predict(model_xgb, newdata = test_data)
+confusionMatrix(pred, test_data$koi_pdisposition)
+```
+
+## Aprendizaje no Supervisado
+
+**K-means**
+
+Como primer método de aprendizaje no supervisado hemos decidido aplicar el K-means. Para ello, hemos tenido que eliminar algunas columnas del dataset que no eran numéricas para poder llevar a cabo el método.
+
+```{r}
+library(tidyverse)
+
+kep_nuevo <- kepler %>%
+  select(koi_period, 
+         koi_duration, 
+         koi_depth,    
+         koi_prad)
+
+# 2. Limpiamos los Nulos
+kep_limpio <- na.omit(kep_nuevo)
+
+# 3. Escalamos para evitar errores de escala entre los datos.
+kep_escalado <- scale(kep_limpio)
+
+# 4. Ejecutamos el algoritmo.
+set.seed(123)
+km_final <- kmeans(kep_escalado, centers = 3, nstart = 25)
+
+# 5. Visualizamos el resultado del k-means.
+fviz_cluster(km_final, data = kep_escalado, geom = "point",
+             ellipse.type = "convex", ggtheme = theme_bw(),
+             main = "K-Means con Variables Físicas Completas")
+```
